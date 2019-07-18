@@ -10,6 +10,10 @@
 #import "UIControl+YYAdd.h"
 #import "UIView+YYAdd.h"
 #import "LFLiveKit.h"
+#import <ZegoLiveRoom/ZegoLiveRoom.h>
+#import <sys/utsname.h>
+
+static ZegoLiveRoomApi *g_ZegoApi = nil;
 
 inline static NSString *formatedSpeed(float bytes, float elapsed_milli) {
     if (elapsed_milli <= 0) {
@@ -30,7 +34,7 @@ inline static NSString *formatedSpeed(float bytes, float elapsed_milli) {
     }
 }
 
-@interface LFLivePreview ()<LFLiveSessionDelegate>
+@interface LFLivePreview ()<LFLiveSessionDelegate,ZegoRoomDelegate>
 
 @property (nonatomic, strong) UIButton *beautyButton;
 @property (nonatomic, strong) UIButton *cameraButton;
@@ -56,10 +60,51 @@ inline static NSString *formatedSpeed(float bytes, float elapsed_milli) {
         [self.containerView addSubview:self.cameraButton];
         [self.containerView addSubview:self.beautyButton];
         [self.containerView addSubview:self.startLiveButton];
+        
+        //初始化zego sdk
+        [self setupLiveKit];
+        [self loginRoom];
     }
     return self;
 }
 
+#pragma mark -- zego
+- (void)setupLiveKit{
+    //设置测试环境
+    [ZegoLiveRoomApi setUseTestEnv:true];
+    //设置appId，appsign
+    uint32_t appID = 2576485532;
+    Byte signkey[] = {0x75,0x60,0xe0,0x0b,0x10,0xf6,0x21,0xf5,0xd3,0x21,0x64,0x47,0x61,0x42,0x42,0xae,0x59,0xf5,0xa5,0x63,0x08,0xbe,0x06,0x49,0x11,0x38,0xc2,0x80,0x6c,0x14,0x93,0x23};
+    NSData * appSign = [NSData dataWithBytes:signkey length:32];
+    g_ZegoApi = [[ZegoLiveRoomApi alloc] initWithAppID:appID appSignature:appSign completionBlock:^(int errorCode) {
+        NSLog(@"init SDK result:%d", errorCode);
+    }];
+    //房间登录前设置roomConfig
+    [g_ZegoApi setRoomConfig:NO userStateUpdate:YES];
+    [g_ZegoApi setRoomDelegate:self];
+}
+    
+- (void)loginRoom{
+    //设置userID，userName
+    srand((unsigned)time(0));
+    NSString*  userID = [NSString stringWithFormat:@"%u", (unsigned)rand()];
+    NSString* userName = [NSString stringWithFormat:@"name-%@",userID];
+    [ZegoLiveRoomApi setUserID:userID userName:userName];
+    //设置roomID
+    srand((unsigned)time(0));
+    NSString* roomID = [NSString stringWithFormat:@"%u", (unsigned)rand()];
+    //登录房间
+    bool ret = [g_ZegoApi loginRoom:roomID roomName:@"test" role:ZEGO_ANCHOR withCompletionBlock:^(int errorCode, NSArray<ZegoStream *> *streamList) {
+        NSLog(@"%s, error: %d", __func__, errorCode);
+        if (errorCode == 0)
+        {
+            NSString *logString = [NSString stringWithFormat:NSLocalizedString(@"登录房间成功. roomID: %@", nil), roomID];
+            NSLog(@"%@",logString);
+        }
+    }];
+    NSLog(@"login result:%u",ret);
+    
+}
 #pragma mark -- Public Method
 - (void)requestAccessForVideo {
     __weak typeof(self) _self = self;
@@ -368,6 +413,28 @@ inline static NSString *formatedSpeed(float bytes, float elapsed_milli) {
         }];
     }
     return _startLiveButton;
+}
+
+#pragma mark - ZegoRoomDelegate
+- (void)onDisconnect:(int)errorCode roomID:(NSString *)roomID
+{
+    NSString *logString = [NSString stringWithFormat:NSLocalizedString(@"连接失败, error: %d", nil), errorCode];
+    NSLog(@"disconnect:%@",logString);
+}
+    
+- (void)onKickOut:(int)reason roomID:(NSString *)roomID
+{
+    UIAlertView *alertView = [[UIAlertView alloc] initWithTitle:@"" message:NSLocalizedString(@"被踢出房间", nil) delegate:self cancelButtonTitle:@"OK" otherButtonTitles:nil, nil];
+    [alertView show];
+}
+    
+- (void)onStreamUpdated:(int)type streams:(NSArray<ZegoStream *> *)streamList roomID:(NSString *)roomID
+{
+      
+}
+    
+- (void)onStreamExtraInfoUpdated:(NSArray<ZegoStream *> *)streamList roomID:(NSString *)roomID
+{
 }
 
 @end
