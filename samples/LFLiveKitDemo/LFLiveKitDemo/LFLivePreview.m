@@ -78,6 +78,7 @@ inline static NSString *formatedSpeed(float bytes, float elapsed_milli) {
     NSData * appSign = [NSData dataWithBytes:signkey length:32];
     g_ZegoApi = [[ZegoLiveRoomApi alloc] initWithAppID:appID appSignature:appSign completionBlock:^(int errorCode) {
         NSLog(@"init SDK result:%d", errorCode);
+        
     }];
     //房间登录前设置roomConfig
     [g_ZegoApi setRoomConfig:NO userStateUpdate:YES];
@@ -91,15 +92,18 @@ inline static NSString *formatedSpeed(float bytes, float elapsed_milli) {
     NSString* userName = [NSString stringWithFormat:@"name-%@",userID];
     [ZegoLiveRoomApi setUserID:userID userName:userName];
     //设置roomID
-    srand((unsigned)time(0));
-    NSString* roomID = [NSString stringWithFormat:@"%u", (unsigned)rand()];
+  
+    NSString* roomID = @"88";
     //登录房间
-    bool ret = [g_ZegoApi loginRoom:roomID roomName:@"test" role:ZEGO_ANCHOR withCompletionBlock:^(int errorCode, NSArray<ZegoStream *> *streamList) {
+    bool ret = [g_ZegoApi loginRoom:roomID roomName:@"余林的房间" role:ZEGO_ANCHOR withCompletionBlock:^(int errorCode, NSArray<ZegoStream *> *streamList) {
         NSLog(@"%s, error: %d", __func__, errorCode);
         if (errorCode == 0)
         {
             NSString *logString = [NSString stringWithFormat:NSLocalizedString(@"登录房间成功. roomID: %@", nil), roomID];
             NSLog(@"%@",logString);
+            LFLiveStreamInfo *stream = [LFLiveStreamInfo new];
+            stream.url = [NSString stringWithFormat:@"rtmp://39.106.49.206/live/%@",roomID];
+            [self.session startLive:stream];
         }
     }];
     NSLog(@"login result:%u",ret);
@@ -398,6 +402,7 @@ inline static NSString *formatedSpeed(float bytes, float elapsed_milli) {
         [_startLiveButton setTitle:@"开始直播" forState:UIControlStateNormal];
         [_startLiveButton setBackgroundColor:[UIColor colorWithRed:50 green:32 blue:245 alpha:1]];
         _startLiveButton.exclusiveTouch = YES;
+        _startLiveButton.selected = YES;
         __weak typeof(self) _self = self;
         [_startLiveButton addBlockForControlEvents:UIControlEventTouchUpInside block:^(id sender) {
             _self.startLiveButton.selected = !_self.startLiveButton.selected;
